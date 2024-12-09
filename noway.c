@@ -3,15 +3,26 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <locale.h>
+#include <locale.h> 
 
-#define MAX_VALUES 9999
+#define precision 0.15
 #define FILENAME "output.csv"
+#define MAX_T 100
 
+unsigned long long factorial(int n) {
+    if (n == 0 || n == 1) return 1;
+    unsigned long long result = 1;
+    for (int i = 2; i <= n; i++) {
+        result *= i;
+    }
+    return result;
+}
+
+
+double* values;
 double F1(double x) {
     return log(fabs(sin(x)) + pow(x, 2.0 / 5.0)) / log(5);
 }
-
 double F2(double x) {
     if (x <= 1) {
         return (pow(x, 2) - 7 * x + 3) / exp(x);
@@ -20,12 +31,36 @@ double F2(double x) {
         return log(pow(x, 2));
     }
 }
+double F3(double x) {
+    double sum = 0.0;
+    for (int n = 0; n < MAX_T; n++) {
+        double term = ((double)factorial(2 * n) / ((pow(2, 2 * n) * pow(factorial(n), 2)))) * (pow(x, -2 * n) / (2 * n));
+        sum += term;
+        if (fabs(term) < precision) {
+            break;
+        }
+    }
+    return sum;
+}
 
-void output_to_file(double values[], int count) {
+int count = 0;
+
+int input_file() {
+    FILE* file = fopen("input.csv", "r");
+    if (file == NULL) {
+        return -1;
+    }
+    values = (double*)malloc(sizeof(file));
+    count = 0;
+    while (fscanf(file, "%lf", &values[count]) != EOF) {
+        count++;
+    }
+    fclose(file);
+}
+int output_to_file(double values[], int count) {
     FILE* file = fopen(FILENAME, "w");
     if (file == NULL) {
-        printf("Ошибка открытия файла для записи.\n");
-        return;
+        return -1;
     }
     for (int i = 0; i < count; i++) {
         fprintf(file, "%d, %lf\n", i + 1, values[i]);
@@ -33,16 +68,23 @@ void output_to_file(double values[], int count) {
     fclose(file);
     printf("Данные записаны в файл %s\n", FILENAME);
 }
-
-void find_min_max(double values[], int count, double* min, double* max) {
-    *min = *max = values[0];
+double find_max(double values[], int count) {
+    double max;
+    max = values[0];
     for (int i = 1; i < count; i++) {
-        if (values[i] < *min) *min = values[i];
-        else *max = values[i];
+        if (values[i] > max) max = values[i];
     }
+    return max;
 }
-
-int linear_search(double values[], int count, double target, double precision) {
+double find_min(double values[], int count) {
+    double min;
+    min = values[0];
+    for (int i = 1; i < count; i++) {
+        if (values[i] < min) min = values[i];
+    }
+    return min;
+}
+int linear_search(double values[], int count, double target) {
     for (int i = 0; i < count; i++) {
         if (fabs(values[i] - target) < precision) {
             return i;
@@ -50,17 +92,14 @@ int linear_search(double values[], int count, double target, double precision) {
     }
     return -1;
 }
-
 double differentiate(double (*func)(double), double x, double h) {
     return (func(x + h) - func(x)) / h;
 }
 
 int main() {
     setlocale(LC_CTYPE, "RUS");
-    double values[MAX_VALUES];
-    int count = 0;
     int mode, n;
-    double xmin, xmax, dx, precision;
+    double xmin, xmax, dx;
 
     while (1) {
         printf("\nМеню:\n");
@@ -91,19 +130,15 @@ int main() {
                 printf("Нет вычисленных значений.\n");
             }
             else {
-                double min, max;
-                find_min_max(values, count, &min, &max);
-                printf("Минимальное значение: %lf\n", min);
-                printf("Максимальное значение: %lf\n", max);
+                printf("Минимальное значение: %lf\n", find_min(values, count));
+                printf("Максимальное значение: %lf\n", find_max(values, count));
             }
             break;
         case 3: {
             double target;
             printf("Введите значение функции для поиска: ");
             scanf("%lf", &target);
-            printf("Введите точность: ");
-            scanf("%lf", &precision);
-            int index = linear_search(values, count, target, precision);
+            int index = linear_search(values, count, target);
             if (index != -1) {
                 printf("Значение найдено на индексе: %d\n", index);
             }
@@ -133,16 +168,7 @@ int main() {
 
             switch (choice) {
             case 1: {
-                FILE* file = fopen("input.csv", "r");
-                if (file == NULL) {
-                    printf("Ошибка открытия файла.\n");
-                    break;
-                }
-                count = 0;
-                while (fscanf(file, "%lf", &values[count]) != EOF) {
-                    count++;
-                }
-                fclose(file);
+                input_file();
                 break;
             }
             case 2: {
@@ -152,6 +178,7 @@ int main() {
                 scanf("%lf", &dx);
                 n = 10;
                 count = 0;
+                values = (double*)malloc(n * sizeof(double));
                 for (double x = xmin; count < n; x += dx) {
                     values[count++] = F1(x);
                 }
@@ -164,27 +191,20 @@ int main() {
                 scanf("%lf", &xmin);
                 printf("Введите xmax: ");
                 scanf("%lf", &xmax);
+                values = (double*)malloc(n * sizeof(double));
                 count = 0;
                 while (count < n) {
-                    double x = xmin + 1.f* (xmax - xmin)*rand()/RAND_MAX;
-                        int unique = 1;
-                        for (int i = 0; i < count; i++) {
-                            if (values[i]==x) {
-                                unique = 0;
-                                break;
-                            }
-                        }
-                        if (unique) {
-                            values[count++] = F1(x);
-                        
+                    double x = xmin + 1.f * (xmax - xmin) * rand() / RAND_MAX;
+                    values[count++] = F3(x);
+
                 }
                 break;
             }
             default:
                 printf("Неверный выбор. Попробуйте снова.\n");
             }
-            break;
-        }
+                  break;
+            }
         case 6:
             printf("А его пока нет\n");
             break;
@@ -194,7 +214,7 @@ int main() {
         default:
             printf("Неверный выбор. Попробуйте снова.\n");
         }
-    }
+        }
 
-    return 0;
-}
+        return 0;
+    }
