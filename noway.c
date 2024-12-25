@@ -5,7 +5,7 @@
 #include <string.h>
 #include <locale.h> 
 
-#define precision 0.15
+#define precision 0.015
 #define FILENAME "output.csv"
 #define MAX_T 100
 
@@ -23,6 +23,7 @@ double find_max(double values[], int);
 double find_min(double values[], int);
 int linear_search(double values[], int, double);
 double differentiate(double (*func)(double), double, double);
+double choose_function(int, double);
 
 int main() {
     setlocale(LC_CTYPE, "RUS");
@@ -86,7 +87,17 @@ int main() {
             break;
         }
         case 5: {
-            int choice;
+            int choice, choice_func;
+            printf("Выберите функцию(F1 - 1,F2 - 2,F3 - 3):\n");
+            scanf("%d",&choice_func);
+            double (* func)(double x);
+            double x = 0;
+            switch (choice_func) {
+            case 1: { func = F1; break; }
+            case 2: { func = F2; break; }
+            case 3: { func = F3; break; }
+            default: func = F2;
+            }
             printf("Выберите режим:\n");
             printf("1) Заданные значения (cvs-файл)\n");
             printf("2) Сгенерированные от xmin с шагом dx(n=10)\n");
@@ -108,7 +119,7 @@ int main() {
                 count = 0;
                 values = (double*)malloc(n * sizeof(double));
                 for (double x = xmin; count < n; x += dx) {
-                    values[count++] = F1(x);
+                    values[count++] = func(x);
                 }
                 break;
             }
@@ -123,7 +134,7 @@ int main() {
                 count = 0;
                 while (count < n) {
                     double x = xmin + 1.f * (xmax - xmin) * rand() / RAND_MAX;
-                    values[count++] = F1(x);
+                    values[count++] = func(x);
 
                 }
                 break;
@@ -202,15 +213,6 @@ double differentiate(double (*func)(double), double x, double h) {
             return min;
         }
 
-        unsigned long long factorial(int n) {
-            if (n == 0 || n == 1) return 1;
-            unsigned long long result = 1;
-            for (int i = 2; i <= n; i++) {
-                result *= i;
-            }
-            return result;
-        }
-
         double F1(double x) {
             return log(fabs(sin(x)) + pow(x, 2.0 / 5.0)) / log(5);
         }
@@ -221,15 +223,30 @@ double differentiate(double (*func)(double), double x, double h) {
             else {
                 return log(pow(x, 2));
             }
+
         }
-        double F3(double x) {
-            double sum = 0.0;
-            for (int n = 0; n < MAX_T; n++) {
-                double term = ((double)factorial(2 * n) / ((pow(2, 2 * n) * pow(factorial(n), 2)))) * (pow(x, -2 * n) / (2 * n));
-                sum += term;
-                if (fabs(term) < precision) {
-                    break;
-                }
+
+        unsigned long long factorial(int n) {
+            if (n == 0 || n == 1) return 1;
+            unsigned long long result = 1;
+            for (int i = 2; i <= n; i++) {
+                result *= i;
             }
-            return sum;
+            return result;
         }
+
+            double F3(double x) {
+                if (x > 1)
+                {
+                    double sum = 0.0;
+                    for (int n = 1; n < MAX_T; n++) {
+                        double term = ((double)factorial(2 * n) / ((pow(2, 2 * n) * pow(factorial(n), 2)))) * (pow(x, -2 * n) / (2 * n));
+                        sum += term;
+                        if (fabs(term) < precision) {
+                            break;
+                        }
+                    }
+                    return log(2 * x) - sum;
+                }
+                else return 0;
+            }
