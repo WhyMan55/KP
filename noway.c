@@ -52,7 +52,7 @@ int main() {
             case 3: { func = F3; break; }
             default: func = F1;
             }
-
+            break;
         }
 
         case 1:
