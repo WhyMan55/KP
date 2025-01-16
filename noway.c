@@ -50,7 +50,7 @@ int main() {
             case 1: { func = F1; break; }
             case 2: { func = F2; break; }
             case 3: { func = F3; break; }
-            default: func = F1;
+            default: func = F1; break;
             }
             break;
         }
@@ -229,7 +229,9 @@ unsigned long long factorial(int n) {
 }
 
 double F1(double x) {
-    return log(fabs(sin(x)) + pow(x, 2.0 / 5.0)) / log(5);
+    if (x != 0)
+        return log(fabs(sin(x)) + pow(x, 2.0 / 5.0)) / log(5);
+    else return NAN;
 }
 double F2(double x) {
     if (x <= 1) {
@@ -253,5 +255,4 @@ double F3(double x) {
         }
         return log(2 * x) - sum;
     }
-    else return 0;
-}
+    else return NAN;
