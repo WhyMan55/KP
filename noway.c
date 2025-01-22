@@ -8,26 +8,34 @@
 #define FILENAME "output.csv"
 #define MAX_T 100
 
+struct function {
+    double x;
+    double y;
+};
+
 int count = 0;
-double* values;
+struct function* values; 
 double F1(double);
 double F2(double);
 double F3(double);
+double (*func)(double) = F1;
 
 int input_file(char*);
-int output_to_file(double values[], int);
-double find_max(double values[], int);
-double find_min(double values[], int);
+int output_to_file(struct function values[], int);
+double find_max(struct function values[], int);
+double find_min(struct function values[], int);
 unsigned long long factorial(int n);
-int linear_search(double values[], int, double);
+int linear_search(struct function values[], int, double);
 double differentiate(double (*func)(double), double, double);
+void tabulation(int, struct function values[]);
+void find_sign_changes(double (*func)(double), struct function values[], int count);
+int handle_generated_values_mode(double, double);
+int handle_random_values_mode(double, double);
 
 int main() {
     setlocale(LC_CTYPE, "RUS");
-    int mode, n;
+    int mode;
     double xmin, xmax, dx;
-    double (*func)(double x);
-    func = F1;
 
     while (1) {
         printf("\nМеню:\n");
@@ -37,7 +45,10 @@ int main() {
         printf("3) Линейный поиск значения аргумента при заданном значении функции\n");
         printf("4) Дифференцирование функции в заданной точке\n");
         printf("5) Задание режима и параметров расчета\n");
-        printf("6) Завершение работы\n");
+        printf("6) Определение изменения знака функции\n");
+        printf("7) Модуль разности минимума/максимума функции.\n");
+        printf("8) Проверка пересечения OY.\n");
+        printf("9) Завершение работы\n");
         printf("Выберите опцию: ");
         scanf("%d", &mode);
         switch (mode) {
@@ -45,7 +56,6 @@ int main() {
             int choice_func;
             printf("Выберите функцию(F1 - 1,F2 - 2,F3 - 3):\n");
             scanf("%d", &choice_func);
-            double x = 0;
             switch (choice_func) {
             case 1: { func = F1; break; }
             case 2: { func = F2; break; }
@@ -56,15 +66,7 @@ int main() {
         }
 
         case 1:
-            if (count == 0) {
-                printf("Нет вычисленных значений.\n");
-            }
-            else {
-                for (int i = 0; i < count; i++) {
-                    printf("|%3.d | %11.4lf |\n", i + 1, values[i]);
-                }
-                output_to_file(values, count);
-            }
+            tabulation(count, values);
             break;
         case 2:
             if (count == 0) {
@@ -106,15 +108,14 @@ int main() {
             printf("3) Случайные значения из интервала (xmin; xmax)\n");
             printf("Выберите режим: ");
             scanf("%d", &choice);
-
             switch (choice) {
             case 1: {
                 printf("Введите имя файла\n");
                 char inputfile[255];
-                scanf("%s", &inputfile);
+                scanf("%s", inputfile);
                 input_file(inputfile);
                 for (int i = 0; i < count; i++)
-                    values[i] = func(values[i]);
+                    values[i].y = func(values[i].x);
                 break;
             }
             case 2: {
@@ -122,30 +123,15 @@ int main() {
                 scanf("%lf", &xmin);
                 printf("Введите шаг dx: ");
                 scanf("%lf", &dx);
-                n = 10;
-                count = 0;
-                values = (double*)malloc(n * sizeof(double));
-                for (double x = xmin; count < n; x += dx) {
-                    values[count++] = func(x);
-                }
+                handle_generated_values_mode(xmin, dx);
                 break;
             }
             case 3: {
-
-                printf("Сколько значений? ");
-                scanf("%d", &n);
                 printf("Введите xmin: ");
                 scanf("%lf", &xmin);
                 printf("Введите xmax: ");
                 scanf("%lf", &xmax);
-                values = (double*)malloc(n * sizeof(double));
-                count = 0;
-                while (count < n) {
-                    {
-                        double x = xmin + 1.f * (xmax - xmin) * rand() / RAND_MAX;
-                        values[count++] = func(x);
-                    };
-                }
+                handle_random_values_mode(xmin, xmax);
                 break;
             }
             default:
@@ -153,8 +139,20 @@ int main() {
             }
             break;
         }
-        case 6:
+        case 6: {
+                find_sign_changes(func, values, count);
+            break;
+        }
+        case 7:
+            printf("Модуль разности макс/мин - %lg \n", fabs(find_max(values, count)-find_min(values, count)));
+            break;
+        case 8:
+            if (isnan(func(0)) || isinf(func(0)))
+                printf("Не пересекает OY.\n");
+            else printf("Пересекает OY.\n");
+        case 9:
             printf("Завершение работы.\n");
+            free(values);
             return 0;
         default:
             printf("Неверный выбор. Попробуйте снова.\n");
@@ -164,13 +162,33 @@ int main() {
     return 0;
 }
 
+void tabulation(int size, struct function values[])
+{
+    if (count == 0) {
+        printf("Нет вычисленных значений.\n");
+    }
+    else {
+        printf("|    x        |    y        |\n");
+        for (int i = 0; i < count; i++) {
+            printf("| %11.4lf | %11.4lf |\n", values[i].x, values[i].y);
+        }
+        int a;
+        printf("Вывести в файл?(1 - да; остальные - нет)");
+        scanf("%d", &a);
+        if (a == 1)
+        {
+            output_to_file(values, count);
+        }
+    }
+}
+
 double differentiate(double (*func)(double), double x, double h) {
     return (func(x + h) - func(x)) / h;
 }
 
-int linear_search(double values[], int count, double target) {
+int linear_search(struct function values[], int count, double target) {
     for (int i = 0; i < count; i++) {
-        if (fabs(values[i] - target) < precision) {
+        if (fabs(values[i].y - target) < precision) {
             return i;
         }
     }
@@ -182,41 +200,83 @@ int input_file(char* inputfile) {
     if (file == NULL) {
         return -1;
     }
-    values = (double*)malloc(sizeof(file));
+    values = (struct function*)malloc(MAX_T * sizeof(struct function));
     count = 0;
-    while (fscanf(file, "%lf", &values[count]) != EOF) {
+    while (fscanf(file, "%lf", &values[count].x) != EOF) { 
+        values[count].y = 0; 
         count++;
     }
     fclose(file);
+    return count; 
 }
 
-int output_to_file(double values[], int count) {
+int output_to_file(struct function values[], int count) {
     FILE* file = fopen(FILENAME, "w");
     if (file == NULL) {
         return -1;
     }
     for (int i = 0; i < count; i++) {
-        fprintf(file, "%d, %lf\n", i + 1, values[i]);
+        fprintf(file, "%d, %lf, %lf\n", i + 1, values[i].x, values[i].y);
     }
     fclose(file);
     printf("Данные записаны в файл %s\n", FILENAME);
+    return 0;
 }
 
-double find_max(double values[], int count) {
-    double max;
-    max = values[0];
+void find_sign_changes(double (*func)(double), struct function values[], int count) {
+    int flag = 0;
+    int d = count;
+    for (int i = 1; i <= d; d--) {
+        if ((values[d - 1].y > 0 && values[d].y < 0) || (values[d - 1].y < 0 && values[d].y > 0)) {
+            printf("Между x = %lf и x = %lf\n", values[i - 1].x, values[i].x);
+            flag = 1;
+        }
+    }
+        if (flag != 1)
+            printf("Не меняет знак в заданном интервале.\n");
+}
+
+double find_max(struct function values[], int count) {
+    double max = values[0].y;
     for (int i = 1; i < count; i++) {
-        if (values[i] > max) max = values[i];
+        if (values[i].y > max) max = values[i].y;
     }
     return max;
 }
-double find_min(double values[], int count) {
-    double min;
-    min = values[0];
+
+double find_min(struct function values[], int count) {
+    double min = values[0].y; // Ищем по y
     for (int i = 1; i < count; i++) {
-        if (values[i] < min) min = values[i];
+        if (values[i].y < min) min = values[i].y;
     }
     return min;
+}
+
+int handle_generated_values_mode(double xmin, double dx) {
+    int n = 10;
+    count = 0;
+    values = (struct function*)malloc(n * sizeof(struct function));
+    for (double x = xmin; count < n; x += dx) {
+        values[count].x = x;
+        values[count].y = func(x);
+        count++;
+    }
+    return count;
+}
+
+int handle_random_values_mode(double xmin, double xmax) {
+    int n;
+    printf("Сколько значений? ");
+    scanf("%d", &n);
+    values = (struct function*)malloc(n * sizeof(struct function));
+    count = 0;
+    while (count < n) {
+        double x = xmin + 1.f * (xmax - xmin) * rand() / RAND_MAX;
+        values[count].x = x;
+        values[count].y = func(x);
+        count++;
+    }
+    return count;
 }
 
 unsigned long long factorial(int n) {
@@ -233,6 +293,7 @@ double F1(double x) {
         return log(fabs(sin(x)) + pow(x, 2.0 / 5.0)) / log(5);
     else return NAN;
 }
+
 double F2(double x) {
     if (x <= 1) {
         return (pow(x, 2) - 7 * x + 3) / exp(x);
@@ -242,6 +303,7 @@ double F2(double x) {
     }
 
 }
+
 double F3(double x) {
     if (x > 1)
     {
@@ -256,3 +318,4 @@ double F3(double x) {
         return log(2 * x) - sum;
     }
     else return NAN;
+}
